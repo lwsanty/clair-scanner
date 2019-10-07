@@ -1,4 +1,4 @@
-package main
+package scanner
 
 import (
 	"archive/tar"
@@ -11,7 +11,9 @@ import (
 	"strings"
 	"syscall"
 
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/src-d/go-log.v1"
+
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -33,8 +35,8 @@ var SeverityMap = map[string]int{
 	"Unknown":    7,
 }
 
-// listenForSignal listens for interactions and executes the desired code when it happens
-func listenForSignal(fn func(os.Signal)) {
+// ListenForSignal listens for interactions and executes the desired code when it happens
+func ListenForSignal(fn func(os.Signal)) {
 	signalChannel := make(chan os.Signal, 0)
 
 	signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGQUIT)
@@ -44,17 +46,17 @@ func listenForSignal(fn func(os.Signal)) {
 	}
 }
 
-// createTmpPath creates a temporary folder with a prefix
-func createTmpPath(tmpPrefix string) string {
+// CreateTmpPath creates a temporary folder with a prefix
+func CreateTmpPath(tmpPrefix string) string {
 	tmpPath, err := ioutil.TempDir("", tmpPrefix)
 	if err != nil {
-		logger.Fatalf("Could not create temporary folder: %s", err)
+		log.Errorf(err, "Could not create temporary folder: %s")
 	}
 	return tmpPath
 }
 
 // untar uses a Reader that represents a tar to untar it on the fly to a target folder
-func untar(imageReader io.ReadCloser, target string) error {
+func Untar(imageReader io.ReadCloser, target string) error {
 	tarReader := tar.NewReader(imageReader)
 
 	for {
@@ -66,7 +68,7 @@ func untar(imageReader io.ReadCloser, target string) error {
 		}
 
 		path := filepath.Join(target, header.Name)
-		if !strings.HasPrefix(path, filepath.Clean(target) + string(os.PathSeparator)) {
+		if !strings.HasPrefix(path, filepath.Clean(target)+string(os.PathSeparator)) {
 			return fmt.Errorf("%s: illegal file path", header.Name)
 		}
 		info := header.FileInfo()
@@ -89,26 +91,26 @@ func untar(imageReader io.ReadCloser, target string) error {
 	return nil
 }
 
-// parseWhitelistFile reads the whitelist file and parses it
-func parseWhitelistFile(whitelistFile string) vulnerabilitiesWhitelist {
-	whitelistTmp := vulnerabilitiesWhitelist{}
+// parseWhitelistFile reads the Whitelist file and parses it
+func ParseWhitelistFile(whitelistFile string) VulnerabilitiesWhitelist {
+	whitelistTmp := VulnerabilitiesWhitelist{}
 
 	whitelistBytes, err := ioutil.ReadFile(whitelistFile)
 	if err != nil {
-		logger.Fatalf("Could not parse whitelist file, could not read file %v", err)
+		log.Errorf(err, "Could not parse Whitelist file, could not read file %v")
 	}
 	if err = yaml.Unmarshal(whitelistBytes, &whitelistTmp); err != nil {
-		logger.Fatalf("Could not parse whitelist file, could not unmarshal %v", err)
+		log.Errorf(err, "Could not parse Whitelist file, could not unmarshal %v")
 	}
 	return whitelistTmp
 }
 
 // Validate that the given CVE severity threshold is a valid severity
-func validateThreshold(threshold string) {
+func ValidateThreshold(threshold string) {
 	for severity := range SeverityMap {
 		if threshold == severity {
 			return
 		}
 	}
-	logger.Fatalf("Invalid CVE severity threshold %s given", threshold)
+	log.Warningf("Invalid CVE severity threshold %s given", threshold)
 }

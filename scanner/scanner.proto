@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package scanner;
+
+service Scanner {
+  rpc Scan (ScanRequest) returns (ScanResponse) {}
+  rpc Pull (PullRequest) returns (Empty);
+}
+
+message ScanRequest {
+  string image = 1;
+}
+
+message PullRequest {
+  string image = 1;
+}
+
+message ScanResponse {
+  repeated Vulnerability vulnerabilities = 1;
+}
+
+message Vulnerability {
+  string status = 1;
+  string CVE_severity = 2;
+  string package_name = 3;
+  string package_version = 4;
+  string CVE_description = 5;
+}
+
+message Empty {
+
+}

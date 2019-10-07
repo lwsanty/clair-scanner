@@ -2,15 +2,17 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 
+	"gopkg.in/src-d/go-log.v1"
+
 	cli "github.com/jawher/mow.cli"
+	"github.com/lwsanty/clair-scanner/scanner"
 	"github.com/mbndr/logo"
 )
 
 var (
-	whitelist = vulnerabilitiesWhitelist{}
+	whitelist = scanner.VulnerabilitiesWhitelist{}
 	logger    *logo.Logger
 )
 
@@ -25,26 +27,26 @@ func main() {
 		logFile            = app.StringOpt("l log", "", "Log to a file")
 		reportAll          = app.BoolOpt("all reportAll", true, "Display all vulnerabilities, even if they are approved")
 		reportFile         = app.StringOpt("r report", "", "Report output file, as JSON")
-		imageName          = app.StringArg("IMAGE", "", "Name of the Docker image to scan")
+		imageName          = app.StringArg("IMAGE", "", "Name of the Docker image to Scan")
 		exitWhenNoFeatures = app.BoolOpt("exit-when-no-features", false, "Exit with status code 5 when no features are found for a particular image")
 	)
 
 	app.Before = func() {
 		initializeLogger(*logFile)
 		if *whitelistFile != "" {
-			whitelist = parseWhitelistFile(*whitelistFile)
+			whitelist = scanner.ParseWhitelistFile(*whitelistFile)
 		}
-		validateThreshold(*whitelistThreshold)
+		scanner.ValidateThreshold(*whitelistThreshold)
 	}
 
 	app.Action = func() {
 		logger.Info("Start clair-scanner")
 
-		go listenForSignal(func(s os.Signal) {
-			log.Fatalf("Application interrupted [%v]", s)
+		go scanner.ListenForSignal(func(s os.Signal) {
+			log.Warningf("Application interrupted [%v]", s)
 		})
 
-		result := scan(scannerConfig{
+		result, err := scanner.Scan(scanner.ScannerConfig{
 			*imageName,
 			whitelist,
 			*clair,
@@ -54,7 +56,9 @@ func main() {
 			*reportAll,
 			*exitWhenNoFeatures,
 		})
-		if result == nil {
+		if err != nil {
+			os.Exit(1)
+		} else if result == nil {
 			os.Exit(5)
 		} else if len(result) > 0 {
 			os.Exit(1)

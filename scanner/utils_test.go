@@ -1,4 +1,4 @@
-package main
+package scanner
 
 import (
 	"os"
@@ -14,7 +14,7 @@ func TestSigint(t *testing.T) {
 func testListenOnSignal(t *testing.T, testSignal syscall.Signal) {
 	done := make(chan bool)
 
-	go listenForSignal(func(signal os.Signal) {
+	go ListenForSignal(func(signal os.Signal) {
 		if signal != testSignal {
 			t.Errorf("Expected signal %s, but got %s", testSignal, signal)
 		}

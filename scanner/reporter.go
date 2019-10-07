@@ -1,21 +1,24 @@
-package main
+package scanner
 
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/olekukonko/tablewriter"
 	"io/ioutil"
 	"os"
 	"sort"
+
+	"gopkg.in/src-d/go-log.v1"
+
+	"github.com/olekukonko/tablewriter"
 )
 
 type vulnerabilityReport struct {
 	Image           string              `json:"image"`
 	Unapproved      []string            `json:"unapproved"`
-	Vulnerabilities []vulnerabilityInfo `json:"vulnerabilities"`
+	Vulnerabilities []VulnerabilityInfo `json:"vulnerabilities"`
 }
 
-func sortBySeverity(vulnerabilities []vulnerabilityInfo) {
+func sortBySeverity(vulnerabilities []VulnerabilityInfo) {
 	sort.Slice(vulnerabilities, func(i, j int) bool {
 		return SeverityMap[vulnerabilities[i].Severity] < SeverityMap[vulnerabilities[j].Severity]
 	})
@@ -28,7 +31,7 @@ func formatStatus(status string) string {
 	return fmt.Sprintf(ErrorColor, status)
 }
 
-func formatTableData(vulnerabilities []vulnerabilityInfo, unapproved []string) [][]string {
+func formatTableData(vulnerabilities []VulnerabilityInfo, unapproved []string) [][]string {
 	formatted := make([][]string, len(vulnerabilities))
 	for i, vulnerability := range vulnerabilities {
 		status := "Approved"
@@ -48,7 +51,7 @@ func formatTableData(vulnerabilities []vulnerabilityInfo, unapproved []string) [
 	return formatted
 }
 
-func printTable(vulnerabilities []vulnerabilityInfo, unapproved []string) {
+func printTable(vulnerabilities []VulnerabilityInfo, unapproved []string) {
 	header := []string{"Status", "CVE Severity", "Package Name", "Package Version", "CVE Description"}
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader(header)
@@ -60,12 +63,12 @@ func printTable(vulnerabilities []vulnerabilityInfo, unapproved []string) {
 	table.Render()
 }
 
-func filterApproved(vulnerabilities []vulnerabilityInfo, unapproved []string, reportAll bool) []vulnerabilityInfo {
+func filterApproved(vulnerabilities []VulnerabilityInfo, unapproved []string, reportAll bool) []VulnerabilityInfo {
 	if reportAll {
 		return vulnerabilities
 	}
 
-	vulns := make([]vulnerabilityInfo, 0)
+	vulns := make([]VulnerabilityInfo, 0)
 	for _, vuln := range vulnerabilities {
 		for _, u := range unapproved {
 			if vuln.Vulnerability == u {
@@ -76,29 +79,29 @@ func filterApproved(vulnerabilities []vulnerabilityInfo, unapproved []string, re
 	return vulns
 }
 
-func reportToConsole(imageName string, vulnerabilities []vulnerabilityInfo, unapproved []string, reportAll bool) {
+func reportToConsole(imageName string, vulnerabilities []VulnerabilityInfo, unapproved []string, reportAll bool) {
 	if len(vulnerabilities) > 0 {
-		logger.Warnf("Image [%s] contains %d total vulnerabilities", imageName, len(vulnerabilities))
+		log.Warningf("Image [%s] contains %d total vulnerabilities", imageName, len(vulnerabilities))
 
 		vulnerabilities = filterApproved(vulnerabilities, unapproved, reportAll)
 		sortBySeverity(vulnerabilities)
 
 		if len(unapproved) > 0 {
-			logger.Errorf("Image [%s] contains %d unapproved vulnerabilities", imageName, len(unapproved))
+			log.Warningf("Image [%s] contains %d unapproved vulnerabilities", imageName, len(unapproved))
 			printTable(vulnerabilities, unapproved)
 		} else {
-			logger.Infof("Image [%s] contains NO unapproved vulnerabilities", imageName)
+			log.Infof("Image [%s] contains NO unapproved vulnerabilities", imageName)
 			if reportAll {
 				printTable(vulnerabilities, unapproved)
 			}
 		}
 	} else {
-		logger.Infof("Image [%s] contains NO unapproved vulnerabilities", imageName)
+		log.Infof("Image [%s] contains NO unapproved vulnerabilities", imageName)
 	}
 }
 
 // reportToFile writes the report to file
-func reportToFile(imageName string, vulnerabilities []vulnerabilityInfo, unapproved []string, file string) {
+func reportToFile(imageName string, vulnerabilities []VulnerabilityInfo, unapproved []string, file string) {
 	if file == "" {
 		return
 	}
@@ -109,9 +112,9 @@ func reportToFile(imageName string, vulnerabilities []vulnerabilityInfo, unappro
 	}
 	reportJSON, err := json.MarshalIndent(report, "", "    ")
 	if err != nil {
-		logger.Fatalf("Could not create a report: report is not proper JSON %v", err)
+		log.Errorf(err, "Could not create a report: report is not proper JSON")
 	}
 	if err = ioutil.WriteFile(file, reportJSON, 0644); err != nil {
-		logger.Fatalf("Could not create a report: could not write to file %v", err)
+		log.Errorf(err, "Could not create a report: could not write to file")
 	}
 }
